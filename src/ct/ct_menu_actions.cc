@@ -314,6 +314,8 @@ void CtMenu::init_actions(CtActions* pActions)
             _("Replace Tabs with Spaces"), sigc::mem_fun(*pActions, &CtActions::replace_tabs_with_spaces)});
         _actions.push_back(CtMenuAction{tools_cat, "command_palette", "ct_execute", _("_Command Palette..."), KB_CONTROL+KB_SHIFT+"p",
             _("Command Palette"), sigc::mem_fun(*pActions, &CtActions::command_palette)});
+        _actions.push_back(CtMenuAction{tools_cat, "word_count", "ct_info", _("Word Count..."), None,
+            _("Show Word Count Statistics"), sigc::mem_fun(*pActions, &CtActions::word_count)});
         _actions.push_back(CtMenuAction{tools_cat, "exec_code_all", "ct_play", _("_Execute Code All"), "F5",
             _("Execute All Code in CodeBox or Node"), sigc::mem_fun(*pActions, &CtActions::exec_code_all)});
         _actions.push_back(CtMenuAction{tools_cat, "exec_code_los", "ct_play", _("E_xecute Code Line or Selection"), KB_CONTROL+"F5",
