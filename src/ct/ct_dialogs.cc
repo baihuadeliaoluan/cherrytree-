@@ -1139,3 +1139,61 @@ void CtDialogs::summary_info_dialog(CtMainWin* pCtMainWin, const CtSummaryInfo& 
     dialog.hide();
 #endif
 }
+
+void CtDialogs::word_count_dialog(CtMainWin* pCtMainWin, const CtWordCountInfo& wordCountInfo)
+{
+#if GTK_MAJOR_VERSION >= 4
+    (void)pCtMainWin; (void)wordCountInfo;
+    return;
+#else
+    Gtk::Dialog dialog = Gtk::Dialog{_("Word Count"),
+                                     *pCtMainWin,
+                                     Gtk::DialogFlags::DIALOG_MODAL | Gtk::DialogFlags::DIALOG_DESTROY_WITH_PARENT};
+
+    (void)CtMiscUtil::dialog_add_button(&dialog, _("OK"), Gtk::RESPONSE_ACCEPT, "ct_done");
+
+    dialog.set_default_size(350, 250);
+    dialog.set_position(Gtk::WindowPosition::WIN_POS_CENTER_ON_PARENT);
+    Gtk::Grid grid;
+    grid.property_margin() = 6;
+    grid.set_row_spacing(4);
+    grid.set_column_spacing(8);
+    grid.set_row_homogeneous(true);
+
+    Gtk::Label label_words_key;
+    label_words_key.set_markup(Glib::ustring{"<b>"} + _("Words") + "</b>");
+    grid.attach(label_words_key, 0, 0, 1, 1);
+    Gtk::Label label_words_val{std::to_string(wordCountInfo.words)};
+    grid.attach(label_words_val, 1, 0, 1, 1);
+
+    Gtk::Label label_chars_ws_key;
+    label_chars_ws_key.set_markup(Glib::ustring{"<b>"} + _("Characters (with spaces)") + "</b>");
+    grid.attach(label_chars_ws_key, 0, 1, 1, 1);
+    Gtk::Label label_chars_ws_val{std::to_string(wordCountInfo.chars_with_spaces)};
+    grid.attach(label_chars_ws_val, 1, 1, 1, 1);
+
+    Gtk::Label label_chars_ns_key;
+    label_chars_ns_key.set_markup(Glib::ustring{"<b>"} + _("Characters (no spaces)") + "</b>");
+    grid.attach(label_chars_ns_key, 0, 2, 1, 1);
+    Gtk::Label label_chars_ns_val{std::to_string(wordCountInfo.chars_without_spaces)};
+    grid.attach(label_chars_ns_val, 1, 2, 1, 1);
+
+    Gtk::Label label_paragraphs_key;
+    label_paragraphs_key.set_markup(Glib::ustring{"<b>"} + _("Paragraphs") + "</b>");
+    grid.attach(label_paragraphs_key, 0, 3, 1, 1);
+    Gtk::Label label_paragraphs_val{std::to_string(wordCountInfo.paragraphs)};
+    grid.attach(label_paragraphs_val, 1, 3, 1, 1);
+
+    Gtk::Label label_lines_key;
+    label_lines_key.set_markup(Glib::ustring{"<b>"} + _("Lines") + "</b>");
+    grid.attach(label_lines_key, 0, 4, 1, 1);
+    Gtk::Label label_lines_val{std::to_string(wordCountInfo.lines)};
+    grid.attach(label_lines_val, 1, 4, 1, 1);
+
+    Gtk::Box* pContentArea = dialog.get_content_area();
+    pContentArea->pack_start(grid);
+    pContentArea->show_all();
+    dialog.run();
+    dialog.hide();
+#endif
+}
