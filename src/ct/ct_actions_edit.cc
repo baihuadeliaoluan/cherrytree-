@@ -1170,3 +1170,10 @@ void CtActions::_text_selection_change_case(gchar change_type)
     text_buffer->select_range(text_buffer->get_iter_at_offset(start_offset),
                               text_buffer->get_iter_at_offset(end_offset));
 }
+
+void CtActions::word_count()
+{
+    if (not _is_there_selected_node_or_error()) return;
+    CtWordCountInfo info = CtTextIterUtil::get_word_count_info(_curr_buffer());
+    CtDialogs::word_count_dialog(_pCtMainWin, info);
+}
