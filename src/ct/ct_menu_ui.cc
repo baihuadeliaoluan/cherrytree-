@@ -298,6 +298,7 @@ const char* CtMenu::_get_ui_str_menu()
     <menuitem action='repl_tabs_spaces'/>
     <separator/>
     <menuitem action='command_palette'/>
+    <menuitem action='word_count'/>
   </menu>
 
   <menu action='TreeMenu'>
