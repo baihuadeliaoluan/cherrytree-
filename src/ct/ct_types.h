@@ -24,317 +24,388 @@
 #pragma once
 
 #include <string>
-#include <list>
-#include <set>
-#include <unordered_map>
-#include <deque>
-#include <mutex>
-#include <optional>
-#include <condition_variable>
-#include <type_traits>
-#include <array>
 #include <vector>
+#include <utility>
+#include <set>
+#include <unordered_set>
+#include <unordered_map>
+#include <optional>
+#include <functional>
+#include <cstdint>
 #include <glibmm/ustring.h>
-#include <gtkmm/liststore.h>
+#include <glibmm/refptr.h>
+#include <gdkmm/pixbuf.h>
+#include <gtkmm/textiter.h>
+#include <gtkmm/treeiter.h>
+#include <gtkmm/treestore.h>
+#include <gtkmm/texttag.h>
 #include <gtkmm/textbuffer.h>
-#include "ct_const.h"
+#include <gtkmm/liststore.h>
+#include <gtkmm/treemodelfilter.h>
+#include <gtksourceview/gtksourcebuffer.h>
+#include "ct_filesystem.h"
 
-namespace fs {
-class path;
-}
+class CtMainWin;
+class CtTreeStore;
+class CtAnchoredWidget;
+class CtImagePng;
+class CtImageAnchor;
+class CtImageLatex;
+class CtImageEmbFile;
+class CtCodebox;
+class CtTableHeavy;
+class CtTableLight;
+class CtTableCommon;
+class CtExport2Pango;
 
-enum class CtYesNoCancel { Yes, No, Cancel };
+namespace CtAnchWidgType {
+constexpr char ImageAnchor{'a'};
+constexpr char ImagePng{'i'};
+constexpr char ImageLatex{'l'};
+constexpr char CodeBox{'c'};
+constexpr char TableHeavy{'t'};
+constexpr char TableLight{'T'};
+constexpr char ImageEmbFile{'e'};
+} // CtAnchWidgType
 
-enum class CtDocType { None, XML, SQLite, MultiFile };
+namespace CtTreeCol {
+constexpr int DefTag{'d'};
+constexpr int CustomIconId{'c'};
+constexpr int Sensitive{'s'};
+constexpr int Expanded{'e'};
+constexpr int NodeId{'n'};
+} // CtTreeCol
 
-enum class CtDocEncrypt { None, True, False };
+enum class CtDocType { XML, SQLite };
 
-enum class CtAnchWidgType { None, CodeBox, TableHeavy, TableLight, ImagePng, ImageAnchor, ImageLatex, ImageEmbFile, Link };
+enum class CtDocEncrypt { None, False, True };
 
-enum class CtAnchorExpCollState { None, Expanded, Collapsed };
+enum class CtSaveNeedUpdType { None, True, False };
 
-enum class CtPixTabCBox { Pixbuf, Table, CodeBox };
+enum class CtLoadFrom { None, File, AfterSave, AfterUpdate };
 
-enum class CtSaveNeededUpdType { None, nbuf, npro, ndel, book };
+enum class CtExportType { NONE, PDF, HTML, TXT, CTD, JSONL, HTMLL };
 
-enum class CtXmlNodeType { None, RichText, EncodedPng, Table, CodeBox };
+enum class CtTableColMode { None, Add, Delete, MoveLeft, MoveRight };
 
-enum class CtExporting { NONESAVE, NONESAVEAS, SELECTED_TEXT, CURRENT_NODE, CURRENT_NODE_AND_SUBNODES, ALL_TREE };
+enum class CtTableRowMode { None, Add, Delete, MoveUp, MoveDown };
 
-enum class CtListType { None, Todo, Bullet, Number };
+enum class CtPangoType { TEXT, BOLD, ITALIC, UNDERLINE, MONOSPACE, SMALL, SUPERSCRIPT, SUBSCRIPT };
 
-enum class CtDuplicateShared { None, Duplicate, Shared };
+enum class CtParseType { RichText, PlainText, ToHtml, ToHtmlList, ToJsonL, ToTxt };
+
+enum class CtLinkType { None, Web, Node, File, Fold, App };
+
+enum class CtDialogDisabled { None, ToolbarConfig, HandleImage, HandleLatex, HandleTable, HandleCodeBox, HandleEmbFile, HandleLink };
 
 enum class CtRestoreExpColl : int { FROM_STR=0, ALL_EXP=1, ALL_COLL=2 };
 
-enum class CtMatchType { None, Content, NameNTags };
+enum class CtExporting : int { NO=0, FIRST=1, PROCESS=2, LAST=3 };
 
-class CtCodebox;
-class CtMainWin;
-using CtPairCodeboxMainWin = std::pair<CtCodebox*, CtMainWin*>;
-namespace xmlpp {
-class Document;
-}
-using CtDelayedTextBufferMap = std::unordered_map<gint64, std::shared_ptr<xmlpp::Document>>;
-using CtCurrAttributesMap = std::unordered_map<std::string_view, std::string>;
-using CtSharedNodesMap = std::map<gint64, std::set<gint64>>;
+enum class CtTableSortType : int { ASCII=0, alphaNum=1 };
 
-enum class CtLinkType { None, Webs, File, Fold, Node };
+enum class CtExpandCollapseAll : int { EXPAND=0, COLLAPSE=1 };
+
+enum class CtCurrFileType { None, Shortcut, File };
+
+enum class CtLockGuardState { None, Entered, Leave };
+
+enum class CtTreeState { Tree, TableCell };
+
+enum class CtSearchType { firstFromSel, firstFromTop, all };
+
+enum class CtMatchType { None, Match, AllMatches, BadRegex };
+
+enum class CtAnchMatchType { Range, TableCell };
+
+enum class CtTocEntryType { Plain, Link, TableCell };
+
+enum class CtListType { Number, Bullet, Todo };
+
+enum class CtTreeSortableColumn { Name=0, Addition=1, Modification=2, Custom=3 };
+
+enum class CtPrefDlgTabId { RichText, PlainTextAndCode, Tree, Font, Links, Toolbar, Keyboard, Misc, Theme };
+
+struct CtRecentDocMetadata
+{
+    std::string   doc_name;
+    fs::path      full_path;
+    std::time_t   doc_time;
+    CtDocEncrypt  encrypt;
+    std::string   password;
+};
+
+struct CtColumnData
+{
+    int min{30};
+    int max{-1};
+    std::string width{100};
+};
+
+struct CtTableDimensions
+{
+    int rows;
+    int cols;
+};
+
+struct CtStorageNodePending
+{
+    enum class PendingType { None, Create, Delete, Update, XmlChange, Bookmark };
+    PendingType           pending_type{PendingType::None};
+    std::set<gint64>      remove_children;
+    std::set<std::string> xml_update;
+};
+
+struct CtNodeData
+{
+    gint64         nodeId{-1};
+    std::string    name;
+    std::string    syntax;
+    std::string    tags;
+    bool           isReadOnly{false};
+    std::time_t    tsCreation{0};
+    std::time_t    tsLastSave{0};
+    guint16        customIconId{0};
+    bool           isBold{false};
+    guint16        foregroundRgb24{0};
+    guint16        backgroundRgb24{0};
+    gint64         sharedNodesMasterId{0};
+    std::string    nodeText;
+    std::list<CtAnchoredWidget*> anchoredWidgets;
+    Glib::RefPtr<Gtk::TextBuffer>  pTextBuffer;
+    CtStorageNodePending    pending;
+};
+
+struct CtNodeProperties
+{
+    gint64      nodeId{-1};
+    std::string name;
+    std::string syntax;
+    std::string tags;
+    bool        isReadOnly{false};
+    std::time_t tsCreation{0};
+    std::time_t tsLastSave{0};
+    guint16     customIconId{0};
+    bool        isBold{false};
+    guint16     foregroundRgb24{0};
+    guint16     backgroundRgb24{0};
+};
+
+struct CtNodeState
+{
+    gchar       state_type{'n'}; // 'n':node, 'l':leaf
+    gint64      nodeId{-1};
+    std::string cIter;
+    std::string nodeName;
+    std::string nodeText;
+    guint16     customIconId{0};
+    bool        isBold{false};
+    guint16     foregroundRgb24{0};
+    guint16     backgroundRgb24{0};
+    std::string syntax;
+    bool        isReadOnly{false};
+    std::string tags;
+    std::time_t tsCreation{0};
+    std::time_t tsLastSave{0};
+};
+
+struct CtTreeIter : public Gtk::TreeIter
+{
+    CtTreeIter() : Gtk::TreeIter() {}
+    CtTreeIter(const Gtk::TreeIter& iter) : Gtk::TreeIter(iter) {}
+    CtTreeIter(const CtTreeIter& other) : Gtk::TreeIter(other) {}
+    CtTreeIter& operator=(const CtTreeIter& other) { (void)Gtk::TreeIter::operator=(other); return *this; }
+
+    gint64            get_node_id_data_holder() const;
+    gint64            get_node_parent_id() const;
+    gint64            get_node_shared_master_id() const;
+    gint64            get_node_children_are_collapsed() const;
+    gint64            get_node_brothers_are_collapsed() const;
+    std::time_t       get_node_creating_time() const;
+    std::time_t       get_node_modification_time() const;
+    std::string       get_node_name() const;
+    guint16           get_node_custom_icon_id() const;
+    bool              get_node_is_bold() const;
+    guint16           get_node_foreground_rgb24() const;
+    guint16           get_node_background_rgb24() const;
+    std::string       get_node_syntax_highlighting() const;
+    bool              get_node_read_only() const;
+    std::string       get_node_tags() const;
+    std::string       get_node_text() const;
+    bool              get_node_children_are_on_disk() const;
+    std::list<CtAnchoredWidget*> get_anchored_widgets(const int start_offset = -1, const int end_offset = -1);
+    std::list<CtAnchoredWidget*> get_anchored_widgets_fast();
+    bool              get_node_children_collapsed() const;
+    bool              get_node_brothers_collapsed() const;
+    void              set_node_name(const std::string& node_name);
+    void              set_node_custom_icon_id(const guint16 custom_icon_id);
+    void              set_node_is_bold(const bool is_bold);
+    void              set_node_foreground_rgb24_custom(const guint16 fg_rgb24);
+    void              set_node_background_rgb24_custom(const guint16 bg_rgb24);
+    void              set_node_syntax_highlighting(const std::string& syntax_highl);
+    void              set_node_read_only(const bool is_read_only);
+    void              set_node_tags(const std::string& tags);
+    void              set_node_text(const std::string& node_text);
+    void              set_node_creating_time(const std::time_t& creating_time);
+    void              set_node_modification_time(const std::time_t& mod_time);
+    void              pending_new_db_node();
+    void              set_node_children_collapsed(const bool val);
+    void              set_node_brothers_collapsed(const bool val);
+    void              set_node_shared_master_id(const gint64 shared_master_id);
+};
 
 struct CtLinkEntry
 {
-    CtLinkType    type{CtLinkType::None};
-    gint64        node_id{-1};
-    Glib::ustring webs;
-    Glib::ustring file;
-    Glib::ustring fold;
-    Glib::ustring anch;
-    const Glib::ustring& get_target_searchable() const {
-        if (CtLinkType::Webs == type) return webs;
-        if (CtLinkType::File == type) return file;
-        if (CtLinkType::Fold == type) return fold;
-        return anch;
-    }
-    void set_target_searchable(const Glib::ustring& target_searchable) {
-        if (CtLinkType::Webs == type) webs = target_searchable;
-        else if (CtLinkType::File == type) file = target_searchable;
-        else if (CtLinkType::Fold == type) fold = target_searchable;
-        else anch = target_searchable;
-    }
-    const char* get_type_str() const {
-        if (CtLinkType::Webs == type) return "webs";
-        if (CtLinkType::File == type) return "file";
-        if (CtLinkType::Fold == type) return "fold";
-        if (CtLinkType::Node == type) return "node";
-        return "none";
-    }
+    CtLinkType type{CtLinkType::None};
+    std::string webs;
+    std::string file;
+    std::string fold;
+    std::string app;
+    gint64 node_id{-1};
+    std::string anchor_name;
+    std::string f_size;
 };
 
-struct CtListInfo
+struct CtAnchorExpCollState
 {
-    CtListType type{CtListType::None};
-    int        num_seq{-1};
-    int        level{-1};
-    int        aux{-1};
-    int        startoffs{-1};
-    int        count_nl{-1};
-    friend inline bool operator==(const CtListInfo& lhs, const CtListInfo& rhs) {
-        return lhs.type == rhs.type and
-               lhs.num_seq == rhs.num_seq and
-               lhs.level == rhs.level and
-               lhs.startoffs == rhs.startoffs and
-               lhs.count_nl == rhs.count_nl;
-    }
-    friend inline bool operator!=(const CtListInfo& lhs, const CtListInfo& rhs) { return !(lhs == rhs); }
-    operator bool() const { return type != CtListType::None; }
+    bool first{false};
+    bool second{false};
 };
 
-struct CtTextRange
+struct CtTocEntry
 {
-    Gtk::TextIter iter_start;
-    Gtk::TextIter iter_end;
-    int leading_chars_num{0};
+    int level{0};
+    CtTocEntryType type{CtTocEntryType::Plain};
+    Glib::ustring text;
+    Glib::ustring href;
+    int cellRow{0};
+    int cellCol{0};
 };
 
-struct CtRecentDocRestore
+struct CtMatchRow
 {
-    std::string   exp_coll_str;   // list of expanded nodes
-    std::string   visited_nodes;
-    std::string   node_path;      // the current node
-    int           cursor_pos{0};  // cursor position in the current node
-    int           v_adj_val{0};   // text vertical scrollbar position in the current node
-};
-using CtRecentDocsRestore = std::unordered_map<std::string, CtRecentDocRestore>;
-
-class CtTextCell;
-using CtTableRow = std::vector<void*>; // CtTextCell* (for CtTableHeavy) or Glib::ustring* (for CtTableLight)
-using CtTableMatrix = std::vector<CtTableRow>;
-using CtTableColWidths = std::vector<int>;
-
-template<class TYPE>
-class CtMaxSizedList : public std::list<TYPE>
-{
-public:
-    CtMaxSizedList(const int size) : maxSize{size} {}
-    const int maxSize;
-    void move_or_push_back(const TYPE& element)
-    {
-        std::list<TYPE>::remove(element);
-        std::list<TYPE>::push_back(element);
-        _check_size();
-    }
-    void move_or_push_front(const TYPE& element)
-    {
-        std::list<TYPE>::remove(element);
-        std::list<TYPE>::push_front(element);
-        _check_size();
-    }
-private:
-    void _check_size()
-    {
-        while (std::list<TYPE>::size() > (size_t)maxSize)
-        {
-            std::list<TYPE>::pop_back();
-        }
-    }
+    gint64 nodeId{0};
+    std::string nodeName;
+    gint64 parentId{0};
+    std::string lineContent;
+    int startOffset{0};
+    int endOffset{0};
 };
 
-struct CtScalableTag
+struct CtAnchMatch
 {
-    const std::string sep{";"};
-    CtScalableTag(const char* serialised, const char* fallback = "") {
-        deserialise(serialised, fallback);
-    }
-    void deserialise(const char* serialised, const char* fallback = "") {
-        if (strchr(serialised, '.') or strchr(serialised, ',')) {
-            serialised = fallback; // legacy scale stored as double was not locale proof
-        }
-        gchar** arrayOfStrings = g_strsplit(serialised, sep.c_str(), -1);
-        gchar** ptr = arrayOfStrings;
-        if (*ptr) {
-            scale = static_cast<double>(std::stoi(*ptr))/1000;
-            ++ptr;
-            if (*ptr) {
-                foreground = *ptr;
-                ++ptr;
-                if (*ptr) {
-                    background = *ptr;
-                    ++ptr;
-                    if (*ptr) {
-                        bold = std::stoi(*ptr);
-                        ++ptr;
-                        if (*ptr) {
-                            italic = std::stoi(*ptr);
-                            ++ptr;
-                            if (*ptr) {
-                                underline = std::stoi(*ptr);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        g_strfreev(arrayOfStrings);
-    }
-    std::string serialise() const {
-        return std::to_string(static_cast<unsigned>(round(scale*1000))) + sep +
-               foreground + sep +
-               background + sep +
-               std::to_string(bold) + sep +
-               std::to_string(italic) + sep +
-               std::to_string(underline);
-    }
-    double scale{1.0};
-    std::string foreground;
-    std::string background;
-    bool bold{false};
-    bool italic{false};
-    bool underline{false};
+    int obj_offset{-1};
+    CtAnchWidgType anch_type{CtAnchWidgType::ImagePng};
+    size_t anch_cell_idx{0};
+    int anch_offs_start{-1};
+    int anch_offs_end{-1};
 };
 
-struct CtRecentDocsFilepaths : public CtMaxSizedList<fs::path>
+typedef std::list<CtAnchMatch> CtAnchMatchList;
+
+typedef std::list<CtMatchRow> CtMatchRowList;
+
+struct CtFindOptions
 {
-    CtRecentDocsFilepaths() : CtMaxSizedList<fs::path>{10} {}
-};
-
-struct CtLatestSearches : public CtMaxSizedList<Glib::ustring>
-{
-    CtLatestSearches() : CtMaxSizedList<Glib::ustring>{10} {}
-};
-
-struct CtColoursUserPalette : public CtMaxSizedList<Gdk::RGBA>
-{
-    CtColoursUserPalette() : CtMaxSizedList<Gdk::RGBA>{18} {}
-    Gdk::RGBA* at(const int i) {
-        int idx{0};
-        for (Gdk::RGBA& element : *this) {
-            if (i == idx) return &element;
-            ++idx;
-        }
-        return nullptr;
-    }
-};
-
-class CtStringSplittable
-{
-private:
-    using vect_t = std::vector<Glib::ustring>;
-
-public:
-    CtStringSplittable(const Glib::ustring& str) : _string_cache(str) {
-        for (const auto ch : _string_cache) {
-            _internal_vec.emplace_back(1, ch);
-        }
-    }
-
-    const Glib::ustring& operator[](size_t index) const { return _internal_vec[index]; }
-
-    size_t size() const { return _internal_vec.size(); }
-
-    template<typename T>
-    typename vect_t::const_iterator find(const T& item) const { return std::find(_internal_vec.begin(), _internal_vec.end(), item); }
-
-    template<typename T>
-    bool contains(const T& item) const { return std::find(_internal_vec.begin(), _internal_vec.end(), item) != _internal_vec.end(); }
-
-    typename vect_t::const_iterator end() const { return _internal_vec.end(); }
-    typename vect_t::const_iterator begin() const { return _internal_vec.begin(); }
-
-    const Glib::ustring& item() const { return _string_cache; }
-
-private:
-    Glib::ustring _string_cache;
-    vect_t        _internal_vec;
-};
-
-struct CtStorageNodeState
-{
-    bool is_update_of_existing{false};
-    bool prop{false};
-    bool buff{false};
-    bool hier{false};
-};
-
-struct CtStorageSyncPending
-{
-    bool                                           fix_db_tables{true};
-    bool                                           bookmarks_to_write{false};
-    std::unordered_map<gint64, CtStorageNodeState> nodes_to_write_dict;
-    std::unordered_set<gint64>                     nodes_to_rm_set;
-};
-
-enum class CtBackupType { None, SingleFile, MultiFile };
-struct CtBackupEncryptData
-{
-    CtBackupType backupType;
-    bool needEncrypt;
-    std::string main_backup;
-    std::string file_path;
-    std::string password;
-    std::string extracted_copy;
-    time_t* p_mod_time;
-};
-
-struct CtStockIcon
-{
-    static const gchar* at(const size_t i) {
-        if (i < CtConst::_NODE_CUSTOM_ICONS.size()) {
-            const gchar* retVal = CtConst::_NODE_CUSTOM_ICONS.at(i);
-            if (retVal) {
-                return retVal;
-            }
-        }
-        return CtConst::_NODE_CUSTOM_ICONS.at(CtConst::NODE_ICON_NO_ICON_ID);
-    }
-    static size_t size() { return CtConst::_NODE_CUSTOM_ICONS.size(); }
+    bool case_sensitive{false};
+    bool reg_exp{false};
+    bool whole_word{false};
+    bool start_word{false};
+    bool direction_fw{true};
+    bool all_matches{false};
+    bool node_content{false};
+    bool node_name_n_tags{false};
+    bool only_sel_n_subnodes{false};
+    bool only_bkm_n_subnodes{false};
 };
 
 struct CtExportOptions
 {
     bool include_node_name{true};
     bool new_node_page{false};
-    bool index_in_page{true};
-    bool single_file{false};
+    bool index_in_page{false};
+    bool start_collapsed{false};
+    bool include_node_tags{true};
+};
+
+struct CtStyle
+{
+    CtStyle(const std::string& style_tag_name, const std::string& style_tag_prop_name, const std::string& style_tag_prop_value)
+     : tag_name{style_tag_name}, tag_prop_name{style_tag_prop_name}, tag_prop_value{style_tag_prop_value}
+    {}
+    std::string tag_name;
+    std::string tag_prop_name;
+    std::string tag_prop_value;
+};
+
+struct CtClipboardData
+{
+    CtClipboardData(const std::string& rich_, const std::string& plain_, const std::string& html_)
+     : rich_text{rich_}, plain_text{plain_}, html_text{html_}
+    {}
+    std::string rich_text;
+    std::string plain_text;
+    std::string html_text;
+};
+
+struct CtRgb
+{
+    CtRgb(guint8 r_, guint8 g_, guint8 b_)
+     : r{r_}, g{g_}, b{b_}
+    {}
+    guint8 r;
+    guint8 g;
+    guint8 b;
+};
+
+struct CtScalableTag
+{
+    CtScalableTag(const char* scale_val, const char* property_name, const char* property_value)
+     : scale_val{scale_val}, property_name{property_name}, property_value{property_value}
+    {}
+    const char* scale_val;
+    const char* property_name;
+    const char* property_value;
+};
+
+struct CtFontUtil
+{
+    CtFontUtil(guint16 font_size, std::string font_family)
+     : font_size{font_size}, font_family{font_family}
+    {}
+    guint16 font_size;
+    std::string font_family;
+};
+
+struct CtCodeFontUtil
+{
+    CtCodeFontUtil(guint16 font_size, std::string font_family)
+     : font_size{font_size}, font_family{font_family}
+    {}
+    guint16 font_size;
+    std::string font_family;
+};
+
+struct CtCodeExec
+{
+    CtCodeExec(std::string code_term, std::string code_exec)
+     : code_term{code_term}, code_exec{code_exec}
+    {}
+    std::string code_term;
+    std::string code_exec;
+};
+
+struct CtPrefDlgState
+{
+    CtPrefDlgTabId tab_id{CtPrefDlgTabId::RichText};
+    std::vector<std::string> shown_tabs;
+};
+
+struct CtPasteFrom {
+    bool from_other_tree{false};
+    bool from_table_column{false};
+    bool from_codebox{false};
+    CtPasteFrom() {}
 };
 
 struct CtSummaryInfo
@@ -353,6 +424,15 @@ struct CtSummaryInfo
     size_t anchors_num{0u};
 };
 
+struct CtWordCountInfo
+{
+    int words{0};
+    int chars_with_spaces{0};
+    int chars_without_spaces{0};
+    int paragraphs{0};
+    int lines{0};
+};
+
 template<class F> auto scope_guard(F&& f) {
     return std::unique_ptr<void, typename std::decay<F>::type>{(void*)1, std::forward<F>(f)};
 }
@@ -360,208 +440,29 @@ template<class F> auto scope_guard(F&& f) {
 template <class T, size_t MAX> class ThreadSafeDEQueue
 {
 public:
-    void push_back(T t) {
-        std::lock_guard<std::mutex> lock(m);
-        if (q.size() < MAX) {
-            q.push_back(t);
-            c.notify_one();
-        }
+    bool push_back(const T& item) {
+        std::unique_lock<std::mutex> lock(_mutex);
+        if (_queue.size() >= MAX) return false;
+        _queue.push_back(item);
+        _cond.notify_one();
+        return true;
     }
-    T pop_front() {
-        std::unique_lock<std::mutex> lock(m);
-        while (q.empty()) {
-            c.wait(lock);
-        }
-        T val = q.front();
-        q.pop_front();
-        return val;
+    bool pop_front(T& item) {
+        std::unique_lock<std::mutex> lock(_mutex);
+        _cond.wait(lock, [this]{return not _queue.empty() or _stop; });
+        if (_stop and _queue.empty()) return false;
+        item = _queue.front();
+        _queue.pop_front();
+        return true;
     }
-    std::optional<T> peek() const {
-        std::optional<T> retVal;
-        std::lock_guard<std::mutex> lock(m);
-        if (not q.empty()) {
-            retVal = q.front();
-        }
-        return retVal;
+    void stop() {
+        std::unique_lock<std::mutex> lock(_mutex);
+        _stop = true;
+        _cond.notify_all();
     }
-    bool empty() const {
-        std::lock_guard<std::mutex> lock(m);
-        return q.empty();
-    }
-    size_t size() const {
-        std::lock_guard<std::mutex> lock(m);
-        return q.size();
-    }
-    void clear() {
-        std::lock_guard<std::mutex> lock(m);
-        q.clear();
-    }
-
 private:
-    std::deque<T> q{};
-    mutable std::mutex m{};
-    std::condition_variable c{};
+    std::deque<T>           _queue;
+    std::mutex              _mutex;
+    std::condition_variable _cond;
+    bool                    _stop{false};
 };
-
-struct CtSearchOptions {
-    struct time_search {
-        std::time_t time;
-        bool        on;
-    };
-
-    time_search ts_cre_after;
-    time_search ts_cre_before;
-    time_search ts_mod_after;
-    time_search ts_mod_before;
-    std::string str_find;
-    std::string str_replace;
-    bool        match_case{false};
-    bool        reg_exp{false};
-    bool        accent_insensitive{false};
-    bool        override_exclusions{false};
-    bool        whole_word{false};
-    bool        start_word{false};
-    int*        pMultipleWordsSearchType{nullptr}; // 0: exact match, 1: disregard order (AND), 2: match any (OR)
-    bool        direction_fw{true};
-    int         all_firstsel_firstall{0};
-    bool        iterative_dialog{true};
-    bool        only_sel_n_subnodes{false};
-    bool        node_content{true};
-    bool        node_name_n_tags{true};
-    bool        replace_in_link_targets{false};
-};
-
-namespace Gtk { class Dialog; }
-
-struct CtMatchRowData {
-    gint64          node_id;
-    Glib::ustring   node_name;
-    Glib::ustring   node_hier_name;
-    int             start_offset;
-    int             end_offset;
-    int             line_num;
-    Glib::ustring   line_content;
-    CtAnchWidgType  anch_type;
-    int             anch_cell_idx;
-    int             anch_offs_start;
-    int             anch_offs_end;
-};
-class CtMatchDialogStore : public Gtk::ListStore
-{
-public:
-    const size_t cMaxMatchesInPage;
-    struct CtMatchModelColumns : public Gtk::TreeModelColumnRecord {
-        Gtk::TreeModelColumn<gint64>         node_id;
-        Gtk::TreeModelColumn<Glib::ustring>  node_name;
-        Gtk::TreeModelColumn<Glib::ustring>  node_hier_name;
-        Gtk::TreeModelColumn<int>            start_offset;
-        Gtk::TreeModelColumn<int>            end_offset;
-        Gtk::TreeModelColumn<int>            line_num;
-        Gtk::TreeModelColumn<Glib::ustring>  line_content;
-        Gtk::TreeModelColumn<CtAnchWidgType> anch_type;
-        Gtk::TreeModelColumn<int>            anch_cell_idx;
-        Gtk::TreeModelColumn<int>            anch_offs_start;
-        Gtk::TreeModelColumn<int>            anch_offs_end;
-        CtMatchModelColumns() {
-            add(node_id);
-            add(node_name);
-            add(node_hier_name);
-            add(start_offset);
-            add(end_offset);
-            add(line_num);
-            add(line_content);
-            add(anch_type);
-            add(anch_cell_idx);
-            add(anch_offs_start);
-            add(anch_offs_end);
-        }
-    } columns;
-    std::array<int, 2>  dlg_size{0,0};
-    std::array<int, 2>  dlg_pos{0,0};
-    std::string         saved_path;
-
-    static Glib::RefPtr<CtMatchDialogStore> create(const size_t maxMatchesInPage);
-
-    void deep_clear();
-    CtMatchRowData* add_row(const gint64 node_id,
-                            const Glib::ustring& node_name,
-                            const Glib::ustring& node_hier_name,
-                            const int start_offset,
-                            const int end_offset,
-                            const int line_num,
-                            const Glib::ustring& line_content,
-                            const CtAnchWidgType anch_type,
-                            const int anch_cell_idx,
-                            const int anch_offs_start,
-                            const int anch_offs_end);
-    void load_current_page();
-    void load_next_page();
-    void load_prev_page();
-    size_t get_tot_matches();
-    bool is_multipage();
-    bool has_next_page();
-    bool has_prev_page();
-    std::string get_this_page_range();
-    std::string get_next_page_range();
-    std::string get_prev_page_range();
-
-private:
-    CtMatchDialogStore(const size_t maxMatchesInPage)
-     : cMaxMatchesInPage{maxMatchesInPage}
-    {}
-    Gtk::TreeModel::iterator _add_row(const CtMatchRowData& row_data);
-
-    int                         _page_idx{0};
-    std::vector<CtMatchRowData> _all_matches;
-};
-
-enum class CtCurrFindType { None, SingleNode, MultipleNodes };
-
-struct CtSearchState {
-    bool           replace_active{false};
-    bool           replace_subsequent{false};
-    CtCurrFindType curr_find_type{CtCurrFindType::None};
-    std::string    curr_find_pattern;
-    bool           from_find_iterated{false};
-    gint64         find_iterated_last_name_n_tags_id{0};
-    bool           from_find_back{false};
-    bool           find_back_exclude_obj_offs_zero{false};
-    size_t         find_iter_anchlist_idx{0u};
-    size_t         find_iter_anchlist_size{0u};
-
-    bool           first_useful_node{false};
-    int            counted_nodes{0};
-    int            processed_nodes{0};
-    int            latest_matches{0};
-
-    int            matches_num;
-    bool           all_matches_first_in_node{false};
-
-    int            latest_node_offset_match_start{-1};
-    int            latest_node_offset_match_end{-1};
-    gint64         latest_node_offset_node_id{-1};
-
-    std::unique_ptr<Gtk::Dialog> iteratedfinddialog;
-    int            iterDialogPos[2]{-1,-1};
-
-    std::unique_ptr<Gtk::Dialog> searchfinddialog;
-    int            searchDialogPos[2]{-1,-1};
-
-    std::pair<int,int>               latest_match_offsets{-1,-1};
-    Glib::RefPtr<CtMatchDialogStore> match_store;
-    Gtk::Dialog*                     pMatchStoreDialog{nullptr};
-    bool                             in_loading{false};
-};
-
-class CtAnchoredWidget;
-struct CtAnchMatch {
-    int               start_offset;
-    Glib::ustring     line_content;
-    CtAnchWidgType    anch_type;
-    size_t            anch_cell_idx;
-    int               anch_offs_start;
-    int               anch_offs_end;
-    CtAnchoredWidget* pAnchWidg;
-};
-
-using CtAnchMatchList = std::vector<std::shared_ptr<CtAnchMatch>>;
