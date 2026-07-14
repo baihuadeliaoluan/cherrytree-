@@ -242,6 +242,8 @@ gint64 dialog_selnode(CtMainWin* pCtMainWin, const Glib::ustring& entryStr);
 
 void summary_info_dialog(CtMainWin* pCtMainWin, const CtSummaryInfo& summaryInfo);
 
+void word_count_dialog(CtMainWin* pCtMainWin, const CtWordCountInfo& wordCountInfo);
+
 enum class TableHandleResp { Cancel, Ok, OkFromFile };
 TableHandleResp table_handle_dialog(CtMainWin* pCtMainWin,
                                     const Glib::ustring& title,
