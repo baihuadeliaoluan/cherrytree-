@@ -853,6 +853,75 @@ int CtTextIterUtil::get_words_count(const Glib::RefPtr<Gtk::TextBuffer>& text_bu
     return words;
 }
 
+CtWordCountInfo CtTextIterUtil::get_word_count_info(const Glib::RefPtr<Gtk::TextBuffer>& text_buffer)
+{
+    CtWordCountInfo info;
+    Glib::ustring text = text_buffer->get_text(true);
+    if (!text.empty())
+    {
+        int text_size = text.size();
+        info.chars_with_spaces = text_size;
+
+        for (int i = 0; i < text_size; ++i)
+        {
+            if (!g_unichar_isspace(text[i]))
+            {
+                ++info.chars_without_spaces;
+            }
+        }
+
+        PangoLogAttr* attrs = g_new0(PangoLogAttr, text_size + 1);
+        pango_get_log_attrs(text.c_str(), -1, 0,
+                            pango_language_from_string("C"),
+                            attrs,
+                            text_size + 1);
+        for (int i = 0; i < text_size; ++i)
+        {
+            if (attrs[i].is_word_start)
+            {
+                ++info.words;
+            }
+        }
+        g_free(attrs);
+
+        info.lines = 1;
+        for (int i = 0; i < text_size; ++i)
+        {
+            if (text[i] == '\n')
+            {
+                ++info.lines;
+            }
+        }
+
+        info.paragraphs = 0;
+        bool in_paragraph = false;
+        for (int i = 0; i < text_size; ++i)
+        {
+            if (text[i] == '\n')
+            {
+                if (in_paragraph)
+                {
+                    ++info.paragraphs;
+                    in_paragraph = false;
+                }
+            }
+            else if (!g_unichar_isspace(text[i]))
+            {
+                in_paragraph = true;
+            }
+        }
+        if (in_paragraph)
+        {
+            ++info.paragraphs;
+        }
+        if (info.paragraphs == 0)
+        {
+            info.paragraphs = 1;
+        }
+    }
+    return info;
+}
+
 // Returns the Line Content Given the Text Iter
 Glib::ustring CtTextIterUtil::get_line_content(Glib::RefPtr<Gtk::TextBuffer> text_buffer, const int match_end_offset)
 {
